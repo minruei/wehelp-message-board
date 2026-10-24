@@ -9,10 +9,12 @@
     h1 { text-align: center; }
     form { display: grid; gap: 12px; padding: 16px; border: 1px solid #ddd; border-radius: 8px; }
     textarea { min-height: 80px; padding: 8px; font-size: 16px; }
-    button { padding: 10px; font-size: 16px; cursor: pointer; }
+    form button { padding: 10px; font-size: 16px; cursor: pointer; }
     .message { border-bottom: 1px solid #eee; padding: 16px 0; }
     .message img { display: block; max-width: 100%; max-height: 400px; border-radius: 6px; margin-top: 8px; }
-    .time { color: #888; font-size: 14px; }
+    .meta { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
+    .time { color: #888; font-size: 14px; margin: 0; }
+    .delete { padding: 4px 10px; font-size: 14px; color: #c0392b; background: none; border: 1px solid #e0b4b0; border-radius: 4px; cursor: pointer; }
   </style>
 </head>
 <body>
@@ -27,6 +29,9 @@
   <script>
     const form = document.getElementById('form')
     const list = document.getElementById('list')
+
+    // 輸入一次就先記著，重新整理才要再輸入
+    let adminKey = ''
 
     async function loadMessages() {
       const res = await fetch('/api/messages')
@@ -48,13 +53,46 @@
           div.append(img)
         }
 
+        const meta = document.createElement('div')
+        meta.className = 'meta'
+
         const time = document.createElement('p')
         time.className = 'time'
         time.textContent = new Date(msg.createdAt).toLocaleString('zh-TW')
-        div.append(time)
 
+        const del = document.createElement('button')
+        del.className = 'delete'
+        del.textContent = '刪除'
+        del.addEventListener('click', () => deleteMessage(msg.id))
+
+        meta.append(time, del)
+        div.append(meta)
         list.append(div)
       }
+    }
+
+    async function deleteMessage(id) {
+      if (!adminKey) {
+        adminKey = prompt('請輸入管理密碼') || ''
+        if (!adminKey) return
+      }
+      if (!confirm('確定要刪除這則留言嗎？')) return
+
+      const res = await fetch(`/api/messages/${id}`, {
+        method: 'DELETE',
+        headers: { 'x-admin-key': adminKey },
+      })
+
+      if (res.status === 403) {
+        adminKey = ''
+        alert('管理密碼錯誤')
+        return
+      }
+      if (!res.ok) {
+        alert('刪除失敗，請再試一次')
+        return
+      }
+      loadMessages()
     }
 
     form.addEventListener('submit', async (e) => {

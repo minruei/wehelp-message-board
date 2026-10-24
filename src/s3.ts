@@ -1,5 +1,5 @@
 import 'dotenv/config'
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
+import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
 import { randomUUID } from 'crypto'
 import path from 'path'
 
@@ -21,6 +21,10 @@ export async function uploadImage(file: Express.Multer.File) {
   )
 
   return key
+}
+
+export async function deleteImage(key: string) {
+  await s3.send(new DeleteObjectCommand({ Bucket: process.env.S3_BUCKET, Key: key }))
 }
 
 // 網址開頭放 .env，之後換 CloudFront 只改那裡

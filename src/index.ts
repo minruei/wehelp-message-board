@@ -3,7 +3,7 @@ import express from 'express'
 import multer from 'multer'
 import { RowDataPacket } from 'mysql2'
 import { pool } from './db'
-import { uploadImage, imageUrl } from './s3'
+import { uploadImage, deleteImage, imageUrl } from './s3'
 
 const app = express()
 const port = 8000
@@ -42,6 +42,32 @@ app.post('/api/messages', upload.single('image'), async (req, res) => {
     content,
     imageKey,
   ])
+
+  res.json({ ok: true })
+})
+
+app.delete('/api/messages/:id', async (req, res) => {
+  // 沒設 ADMIN_KEY 也一律擋，不然誰都能刪
+  const adminKey = process.env.ADMIN_KEY
+  if (!adminKey || req.get('x-admin-key') !== adminKey) {
+    res.status(403).json({ error: true, message: '管理密碼錯誤' })
+    return
+  }
+
+  const [rows] = await pool.query<RowDataPacket[]>(
+    'SELECT image_key FROM messages WHERE id = ?',
+    [req.params.id]
+  )
+  if (rows.length === 0) {
+    res.status(404).json({ error: true, message: '找不到這則留言' })
+    return
+  }
+
+  // 先刪資料再刪圖，S3 失敗頂多留一張沒人看得到的圖
+  await pool.query('DELETE FROM messages WHERE id = ?', [req.params.id])
+  if (rows[0].image_key) {
+    await deleteImage(rows[0].image_key)
+  }
 
   res.json({ ok: true })
 })
