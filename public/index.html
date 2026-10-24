@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>圖文留言板</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 600px; margin: 40px auto; padding: 0 16px; color: #222; }
+    h1 { text-align: center; }
+    form { display: grid; gap: 12px; padding: 16px; border: 1px solid #ddd; border-radius: 8px; }
+    textarea { min-height: 80px; padding: 8px; font-size: 16px; }
+    button { padding: 10px; font-size: 16px; cursor: pointer; }
+    .message { border-bottom: 1px solid #eee; padding: 16px 0; }
+    .message img { display: block; max-width: 100%; max-height: 400px; border-radius: 6px; margin-top: 8px; }
+    .time { color: #888; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <h1>圖文留言板</h1>
+  <form id="form">
+    <textarea name="content" placeholder="想說些什麼？" required></textarea>
+    <input type="file" name="image" accept="image/*" />
+    <button type="submit">送出</button>
+  </form>
+  <div id="list"></div>
+
+  <script>
+    const form = document.getElementById('form')
+    const list = document.getElementById('list')
+
+    async function loadMessages() {
+      const res = await fetch('/api/messages')
+      const { data } = await res.json()
+      list.innerHTML = ''
+
+      for (const msg of data) {
+        const div = document.createElement('div')
+        div.className = 'message'
+
+        // 用 textContent，防 XSS
+        const text = document.createElement('p')
+        text.textContent = msg.content
+        div.append(text)
+
+        if (msg.imageUrl) {
+          const img = document.createElement('img')
+          img.src = msg.imageUrl
+          div.append(img)
+        }
+
+        const time = document.createElement('p')
+        time.className = 'time'
+        time.textContent = new Date(msg.createdAt).toLocaleString('zh-TW')
+        div.append(time)
+
+        list.append(div)
+      }
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault()
+      const button = form.querySelector('button')
+      button.disabled = true
+
+      // FormData 連檔案一起送
+      const res = await fetch('/api/messages', { method: 'POST', body: new FormData(form) })
+      button.disabled = false
+
+      if (!res.ok) {
+        alert('送出失敗，請再試一次')
+        return
+      }
+      form.reset()
+      loadMessages()
+    })
+
+    loadMessages()
+  </script>
+</body>
+</html>
